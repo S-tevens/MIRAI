@@ -1,5 +1,7 @@
 # MIRAI
 
+**Live demo:** https://mirai-nine-xi.vercel.app (backend: https://mirai-bmf8.onrender.com)
+
 MIRAI is an agentic post-production pipeline monitor for VFX render farms, built for
 the Agentic Cinema hackathon (Grafana partner track).
 
@@ -106,6 +108,13 @@ Create an [Incoming Webhook](https://api.slack.com/messaging/webhooks) for a cha
 and set it as `SLACK_WEBHOOK_URL` in the backend `.env`.
 
 ## Deployment
+
+The live demo above is deployed on Render (backend) + Vercel (frontend) — no specific
+host is required by the hackathon rules, only that Google Cloud (Gemini) and the
+partner service (Grafana) are actually used at runtime, which both deployments do.
+Render's free tier is kept warm via an external health-check ping every 10 minutes.
+
+Also fully deployable on Google Cloud, matching the original plan:
 
 - **Backend:** `gcloud run deploy --source backend` (Cloud Run, buildpacks — no
   Dockerfile needed; `backend/Procfile` defines the start command)
