@@ -1,10 +1,15 @@
+import time
 from datetime import datetime, timezone
+from typing import Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from sqlalchemy import text
 
-from agent import run_cycle
+from agent import GEMINI_API_KEY, SLACK_WEBHOOK_URL, run_cycle
 from db import AlertLog, Artist, RenderJob, get_session
+from grafana import GRAFANA_API_KEY, GRAFANA_URL
 
 app = FastAPI(title="MIRAI", description="Agentic VFX render pipeline monitor")
 
@@ -84,6 +89,63 @@ def get_alerts():
         ]
     finally:
         session.close()
+
+
+class JobPatch(BaseModel):
+    assigned_artist: Optional[str] = None
+    status: Optional[str] = None
+    render_attempts: Optional[int] = None
+
+
+@app.patch("/jobs/{job_id}")
+def patch_job(job_id: int, patch: JobPatch):
+    session = get_session()
+    try:
+        job = session.get(RenderJob, job_id)
+        if job is None:
+            raise HTTPException(status_code=404, detail="Job not found")
+
+        if patch.assigned_artist is not None:
+            job.assigned_artist = patch.assigned_artist
+        if patch.status is not None:
+            job.status = patch.status
+        if patch.render_attempts is not None:
+            job.render_attempts = patch.render_attempts
+        job.updated_at = datetime.now(timezone.utc)
+
+        session.commit()
+        return {
+            "id": job.id,
+            "shot_name": job.shot_name,
+            "assigned_artist": job.assigned_artist,
+            "status": job.status,
+            "render_attempts": job.render_attempts,
+        }
+    finally:
+        session.close()
+
+
+@app.get("/status")
+def get_status():
+    db_ok = True
+    db_latency_ms = None
+    try:
+        start = time.perf_counter()
+        session = get_session()
+        try:
+            session.execute(text("SELECT 1"))
+        finally:
+            session.close()
+        db_latency_ms = round((time.perf_counter() - start) * 1000, 1)
+    except Exception:
+        db_ok = False
+
+    return {
+        "postgres": {"configured": True, "ok": db_ok, "latency_ms": db_latency_ms},
+        "gemini": {"configured": bool(GEMINI_API_KEY)},
+        "slack": {"configured": bool(SLACK_WEBHOOK_URL)},
+        "grafana": {"configured": bool(GRAFANA_URL and GRAFANA_API_KEY)},
+    }
 
 
 @app.post("/agent/run")
