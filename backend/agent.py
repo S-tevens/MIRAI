@@ -18,6 +18,7 @@ from google import genai
 
 from db import AlertLog, Artist, RenderJob, get_session
 from grafana import push_annotation
+from grafana_mcp import count_prior_flags_by_shot
 
 load_dotenv()
 
@@ -27,6 +28,10 @@ SLACK_WEBHOOK_URL = os.environ.get("SLACK_WEBHOOK_URL")
 
 SYSTEM_PROMPT = """You are MIRAI, an AI production supervisor for a VFX render pipeline.
 You will be given a JSON list of render jobs and artist workloads.
+Each job includes previously_flagged_count, pulled live from Grafana's own
+annotation history (via the Grafana MCP server) — how many past cycles have
+already flagged this exact shot. Treat a high previously_flagged_count as a
+sign that earlier recommendations were not acted on and escalate accordingly.
 For each job at meaningful risk of missing its deadline, output:
 - shot_name
 - risk_reason (one specific, causal sentence - not generic)
@@ -54,6 +59,11 @@ def observe(session) -> dict:
         .all()
     )
 
+    # Pulled live from Grafana Cloud via its MCP server (get_annotations), not
+    # re-derived from our own alerts_log — lets Gemini see "MIRAI already
+    # flagged this shot N times and it's still not fixed" as a real signal.
+    prior_flags = count_prior_flags_by_shot()
+
     job_signals = []
     for job in jobs:
         hours_remaining = round(_hours_until(job.deadline), 1)
@@ -79,6 +89,7 @@ def observe(session) -> dict:
                 "render_attempts": job.render_attempts,
                 "has_failed_renders": job.render_attempts > 1,
                 "complexity_score": job.complexity_score,
+                "previously_flagged_count": prior_flags.get(job.shot_name, 0),
             }
         )
 
