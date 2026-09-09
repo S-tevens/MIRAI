@@ -536,21 +536,7 @@
   text-decoration: underline;
 }
 
-/* — workload — */
-.workload-panel {
-  padding: var(--space-4);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-.artist-row {
-  display: grid;
-  grid-template-columns: 1fr 72px 40px;
-  align-items: center;
-  gap: 11px;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--color-divider);
-}
+/* — capacity bar, reused by the topology graph's artist nodes — */
 .capacity-track {
   height: 5px;
   background: var(--color-neutral-200);
@@ -567,52 +553,185 @@
   font-size: 12.5px;
   text-align: right;
 }
-.histogram-card {
-  padding: var(--space-3);
-}
-.histogram {
+
+/* — graph band — */
+.graph-band {
+  flex: 0 0 270px;
   display: flex;
-  align-items: flex-end;
-  gap: 8px;
-  height: 104px;
-  margin: 13.8px 0 6px;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-divider);
+  min-height: 0;
 }
-.histogram-bar {
-  flex: 1;
+.graph-panel {
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.graph-panel-pipeline {
+  flex: 0 0 38%;
+}
+.graph-panel-topology {
+  flex: 1 1 62%;
+}
+.graph-panel-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 4px 6px 4px var(--space-3);
+  border-bottom: 1px solid var(--color-divider);
+  background: var(--color-neutral-100);
+}
+.graph-panel-head .kicker {
+  margin-right: auto;
+}
+.expand-btn {
+  width: 24px;
+  height: 24px;
+  flex: none;
+}
+.graph-legend {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: none;
+}
+.legend-item {
+  display: flex;
   align-items: center;
   gap: 4px;
-  height: 100%;
-  justify-content: flex-end;
-}
-.histogram-fill {
-  width: 100%;
-  border: 1px solid var(--color-neutral-500);
-  display: block;
-}
-.histogram-label {
   font-size: 10.5px;
   color: var(--color-neutral-700);
+  white-space: nowrap;
+}
+.legend-swatch {
+  width: 14px;
+  height: 2px;
+  border-radius: 1px;
+  flex: none;
+}
+.legend-swatch-blocking {
+  background: var(--color-accent-700);
+  height: 2.5px;
+}
+.legend-swatch-clear {
+  background: var(--color-neutral-400);
+  opacity: 0.6;
 }
 
-/* — integrations / audit — */
-.integrations-panel {
-  padding: var(--space-4);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-.integration-head {
+/* — expanded graph modal — */
+.graph-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in srgb, var(--color-neutral-900) 55%, transparent);
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  padding: var(--space-6);
+  z-index: 100;
 }
-.card-title {
-  font-family: var(--font-heading);
+.graph-modal {
+  width: 100%;
+  height: 100%;
+  max-width: 1200px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.graph-modal-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-divider);
+  background: var(--color-neutral-100);
+}
+.graph-modal-canvas {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+.graph-canvas {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  width: 100%;
+}
+.mirai-flow {
+  width: 100%;
+  height: 100%;
+  --xy-background-color: var(--color-bg);
+  --xy-node-background-color: var(--color-neutral-100);
+  --xy-node-border: 1px solid var(--color-divider);
+  --xy-node-color: var(--color-text);
+  --xy-edge-stroke: var(--color-neutral-400);
+  --xy-edge-stroke-width: 1.5;
+  --xy-attribution-background-color: transparent;
+}
+.rf-node {
+  font-family: var(--font-body);
+  background: var(--color-neutral-100);
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-md);
+  padding: 5px 9px;
+  font-size: 11px;
+  min-width: 78px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.rf-node.is-active {
+  border-color: var(--color-accent);
+  background: var(--color-accent-100);
+}
+.rf-node.is-active .service-dot {
+  animation: mirai-pulse 1s ease-in-out infinite;
+  background: var(--color-accent-600);
+}
+.rf-node.is-error {
+  border-color: var(--color-accent-700);
+  background: var(--color-accent-200);
+}
+.rf-node-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.rf-node-label {
   font-weight: 600;
-  font-size: 15px;
+  font-size: 11.5px;
 }
+.rf-node-sub {
+  font-size: 10px;
+  color: var(--color-neutral-700);
+}
+.rf-node-link {
+  color: inherit;
+  text-decoration: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.rf-node-artist,
+.rf-node-sequence {
+  min-width: 100px;
+}
+.rf-node-sequence.has-risk {
+  border-color: var(--color-accent-400);
+}
+
+/* — audit — */
 .audit-panel {
   padding: var(--space-4);
   display: flex;
@@ -621,6 +740,16 @@
 }
 
 @media (max-width: 980px) {
+  .graph-band {
+    flex-direction: column;
+    flex: 0 0 auto;
+    height: auto;
+  }
+  .graph-panel,
+  .graph-panel-pipeline,
+  .graph-panel-topology {
+    flex: 0 0 240px;
+  }
   .app-body {
     flex-wrap: wrap;
   }

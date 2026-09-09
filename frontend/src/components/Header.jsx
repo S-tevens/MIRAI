@@ -1,4 +1,6 @@
-export default function Header({ query, onQuery, running, onRun, watchLabel }) {
+import ThemeToggle from "./ThemeToggle";
+
+export default function Header({ query, onQuery, running, onRun, watchLabel, theme, onToggleTheme }) {
   return (
     <div className="header">
       <div className="header-brand">
@@ -7,6 +9,7 @@ export default function Header({ query, onQuery, running, onRun, watchLabel }) {
         <span className="tag tag-outline">demo</span>
       </div>
       <div className="header-controls">
+        <ThemeToggle theme={theme} onToggle={onToggleTheme} />
         <div className="search-box">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
             <circle cx="11" cy="11" r="7" />

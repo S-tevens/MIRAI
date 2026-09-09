@@ -4,20 +4,26 @@ import "./layout.css";
 import { fetchAlerts, fetchArtists, fetchJobs, fetchStatus, patchJob, runAgent } from "./api";
 import AlertsPanel from "./components/AlertsPanel";
 import AuditPanel from "./components/AuditPanel";
+import GraphBand from "./components/GraphBand";
 import Header from "./components/Header";
 import Inspector from "./components/Inspector";
-import IntegrationsPanel from "./components/IntegrationsPanel";
 import JobsPanel from "./components/JobsPanel";
 import Sidebar from "./components/Sidebar";
-import WorkloadPanel from "./components/WorkloadPanel";
 import { deriveRisk, RISK_ORDER } from "./risk";
+import { inferErrorStage } from "./graphLayout";
 import { GRAFANA_PANEL_URL } from "./config";
+import { useTheme } from "./useTheme";
 
 function stamp() {
   return new Date().toLocaleTimeString([], { hour12: false });
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export default function App() {
+  const [theme, toggleTheme] = useTheme();
   const [jobs, setJobs] = useState([]);
   const [artists, setArtists] = useState([]);
   const [alerts, setAlerts] = useState([]);
@@ -37,6 +43,7 @@ export default function App() {
   const [applyState, setApplyState] = useState({});
   const [running, setRunning] = useState(false);
   const [log, setLog] = useState([]);
+  const [run, setRun] = useState(null);
 
   const pushLog = useCallback((tag, msg) => {
     setLog((prev) => [{ t: stamp(), tag, msg }, ...prev].slice(0, 40));
@@ -121,11 +128,9 @@ export default function App() {
       Queue: enrichedJobs.filter((j) => j.status !== "done").length,
       "At risk": filterCounts["At risk"],
       Alerts: alerts.filter((a) => !acked.includes(a.id)).length,
-      Artists: artists.length,
-      Integrations: 4,
       Audit: alerts.length,
     }),
-    [enrichedJobs, filterCounts, alerts, acked, artists]
+    [enrichedJobs, filterCounts, alerts, acked]
   );
 
   const selectedJob = enrichedJobs.find((j) => j.shot_name === selected) || null;
@@ -135,8 +140,6 @@ export default function App() {
     if (v === "At risk") setFilter("At risk");
     if (v === "Queue") setFilter("All");
     if (v === "Alerts") setTab("Alerts");
-    if (v === "Artists") setTab("Workload");
-    if (v === "Integrations") setTab("Integrations");
     if (v === "Audit") setTab("Audit");
   }
 
@@ -161,12 +164,28 @@ export default function App() {
     if (running) return;
     setRunning(true);
     setTab("Alerts");
+    setRun({ phase: "observe" });
     pushLog("start", "Cycle triggered manually (POST /agent/run)");
     try {
       const result = await runAgent();
+
+      // The backend runs observe->reason->decide->act as one HTTP call, so
+      // there's no real per-stage timing to show. The ~350ms staggers below
+      // are purely a reveal pace for legibility — every value they display
+      // (counts, findings) is the real response, not fabricated.
+      setRun((r) => ({ ...r, phase: "reason", observedJobCount: result.observed_job_count }));
       pushLog("observe", `Observed ${result.observed_job_count} in-progress jobs`);
+      await sleep(350);
+
+      setRun((r) => ({ ...r, phase: "decide", findingsCount: result.findings.length }));
       pushLog("reason", `Gemini returned ${result.findings.length} finding(s)`);
+      await sleep(350);
+
+      setRun((r) => ({ ...r, phase: "act", alertsSentCount: result.alerts_sent.length }));
       pushLog("decide", `${result.alerts_sent.length} finding(s) escalated to high severity`);
+      await sleep(350);
+
+      setRun((r) => ({ ...r, phase: "done" }));
       pushLog(
         "act",
         result.alerts_sent.length
@@ -175,6 +194,7 @@ export default function App() {
       );
       await refresh();
     } catch (err) {
+      setRun((r) => ({ ...r, phase: "error", errorMessage: err.message, errorStage: inferErrorStage(err.message) }));
       pushLog("error", err.message);
     } finally {
       setRunning(false);
@@ -245,11 +265,21 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <Header query={query} onQuery={setQuery} running={running} onRun={onRun} watchLabel={watchLabel} />
+      <Header
+        query={query}
+        onQuery={setQuery}
+        running={running}
+        onRun={onRun}
+        watchLabel={watchLabel}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+      />
 
       {connectionError && (
         <div className="connection-banner">Can't reach the MIRAI backend: {connectionError}</div>
       )}
+
+      <GraphBand status={status} run={run} artists={artists} enrichedJobs={enrichedJobs} grafanaPanelUrl={GRAFANA_PANEL_URL} />
 
       <div className="app-body">
         <Sidebar view={view} counts={navCounts} onSelect={onSelectNav} status={status} />
@@ -278,7 +308,7 @@ export default function App() {
 
         <aside className="inspector-aside">
           <div className="aside-tabs">
-            {["Inspector", "Alerts", "Workload", "Integrations", "Audit"].map((t) => (
+            {["Inspector", "Alerts", "Audit"].map((t) => (
               <button
                 key={t}
                 type="button"
@@ -301,8 +331,6 @@ export default function App() {
             />
           )}
           {tab === "Alerts" && <AlertsPanel alerts={alerts} acked={acked} onAck={onAck} onAckAll={onAckAll} onOpen={onOpen} />}
-          {tab === "Workload" && <WorkloadPanel artists={artists} jobs={jobs} />}
-          {tab === "Integrations" && <IntegrationsPanel status={status} />}
           {tab === "Audit" && <AuditPanel alerts={alerts} />}
         </aside>
       </div>

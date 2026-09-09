@@ -1,4 +1,4 @@
-const NAV_ITEMS = ["Queue", "At risk", "Alerts", "Artists", "Integrations", "Audit"];
+const NAV_ITEMS = ["Queue", "At risk", "Alerts", "Audit"];
 
 export default function Sidebar({ view, counts, onSelect, status }) {
   const services = [
