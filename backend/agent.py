@@ -22,7 +22,7 @@ from grafana import push_annotation
 load_dotenv()
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
 SLACK_WEBHOOK_URL = os.environ.get("SLACK_WEBHOOK_URL")
 
 SYSTEM_PROMPT = """You are MIRAI, an AI production supervisor for a VFX render pipeline.
@@ -146,7 +146,12 @@ def _post_slack_alert(finding: dict, hours_remaining: float | None) -> None:
         f"Recommendation: {finding['recommended_action']}\n"
         f"{deadline_line}"
     )
-    requests.post(SLACK_WEBHOOK_URL, json={"text": text}, timeout=10)
+    # Best-effort, same reasoning as grafana.push_annotation: a transient
+    # Slack failure shouldn't abort alerts_log persistence for this cycle.
+    try:
+        requests.post(SLACK_WEBHOOK_URL, json={"text": text}, timeout=10).raise_for_status()
+    except requests.RequestException as exc:
+        print(f"Slack alert failed (non-fatal): {exc}")
 
 
 def act(session, findings: list[dict], observation: dict) -> list[dict]:

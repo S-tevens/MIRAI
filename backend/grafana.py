@@ -21,11 +21,18 @@ def push_annotation(text: str, tags: list[str] | None = None) -> bool:
     if not GRAFANA_URL or not GRAFANA_API_KEY:
         return False
 
-    resp = requests.post(
-        f"{GRAFANA_URL}/api/annotations",
-        headers={"Authorization": f"Bearer {GRAFANA_API_KEY}"},
-        json={"text": text, "tags": tags or ["mirai"]},
-        timeout=10,
-    )
-    resp.raise_for_status()
-    return True
+    # Best-effort: a rate limit or transient network error here shouldn't
+    # take down the whole agent cycle (alerts_log write, Slack notification)
+    # over what is a secondary, dashboard-annotation side effect.
+    try:
+        resp = requests.post(
+            f"{GRAFANA_URL}/api/annotations",
+            headers={"Authorization": f"Bearer {GRAFANA_API_KEY}"},
+            json={"text": text, "tags": tags or ["mirai"]},
+            timeout=10,
+        )
+        resp.raise_for_status()
+        return True
+    except requests.RequestException as exc:
+        print(f"Grafana annotation failed (non-fatal): {exc}")
+        return False
